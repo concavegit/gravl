@@ -16,6 +16,7 @@
 #include <Arduino.h>                        // Used for Arduino functions
 #include "ros.h"                            // Used for rosserial communication
 #include "ackermann_msgs/AckermannDrive.h"  // Used for rosserial steering message
+#include "geometry_msgs/Point.h"
 #include "estop.h"                          // Used to implement estop class
 #include "soft_switch.h"                    // Used to implement auto switch
 
@@ -33,9 +34,11 @@ const byte ESTOP_PIN = 2;
 #define RC_SERIAL Serial1
 #define address 0x80
 #define ROBOCLAW_UPDATE_RATE 500
-RoboClaw rc(&Serial1, 10000);
+RoboClaw rc1(&Serial1, 10000); // In front box, for steering and driving
+RoboClaw rc2(&Serial2, 10000); // In back of tractor, for hitch
 
 // General Constants
+// RoboClaw 1
 #define DEBUG TRUE
 const int VEL_HIGH = 2048;
 const int VEL_LOW = 190;
@@ -45,7 +48,10 @@ const int STEER_LOW = 600;
 const int STEER_CONTROL_RANGE = 90;
 const byte VEL_FIDELITY = 10;       // Stepping sub-division of actuator
 const byte STEER_FIDELITY = 1;
-
+// RoboClaw 2
+const int HEIGHT_MAX = 2048; // Retracted Actuator
+const int HEIGHT_MIN = 190;  // Extended Actuator
+const int HEIGHT_CONTROL_RANGE = 2;    // Range of incoming signals
 
 // Def/Init Global Variables ----------V----------V----------V
 
@@ -53,11 +59,16 @@ const byte STEER_FIDELITY = 1;
 boolean isEStopped = false;
 boolean isAuto = false;
 
+// RoboClaw 1
 int prevVelMsg;
 unsigned int velMsg = VEL_HIGH;                     // High vel var = low vel
 int prevSteerMsg;
 signed int steerMsg = (STEER_HIGH + STEER_LOW) / 2; // Straight steer in middle
 unsigned long prevMillis = millis();
+// RoboClaw 2
+int prevHeightMsg;
+unsigned int heightMsg = (HEIGHT_MAX + HEIGHT_MIN) / 2; // High height_max = retracted actuator = raise hitch
+
 
 
 /*
@@ -72,10 +83,21 @@ void ackermannCB(const ackermann_msgs::AckermannDrive &drive){
   
 } //ackermannCB()
 
+/*
+ * FUNCTION: hitchCB()
+ * DESC: Called upon msg receipt from /hitch; saves data to global vars
+ * ARGS: ros point message
+ * RTNS: none
+ */
+void hitchCB(const geometry_msgs::Point &hitch){
+  heightMsg = heightConvert(hitch.z);
+  
+} //hitchCB()
 
 // Declare ROS node & subscriber
 ros::NodeHandle nh;
-ros::Subscriber<ackermann_msgs::AckermannDrive> sub("drive", &ackermannCB);
+ros::Subscriber<ackermann_msgs::AckermannDrive> sub_drive("drive", &ackermannCB);
+ros::Subscriber<geometry_msgs::Point> sub_hitch("hitch", &hitchCB);
 
 
 /*
@@ -87,12 +109,14 @@ ros::Subscriber<ackermann_msgs::AckermannDrive> sub("drive", &ackermannCB);
 void setup() { // ----------S----------S----------S----------S----------S
 
   //Open serial communication with roboclaw
-  rc.begin(38400);
+  rc1.begin(38400);
+  rc2.begin(38400);
 
   // Set up ROS node and initialize subscriber
   nh.getHardware()->setBaud(115200);
   nh.initNode(); // Initialize ROS nodehandle
-  nh.subscribe(sub);
+  nh.subscribe(sub_drive);
+  nh.subscribe(sub_hitch);
 
   // Initialize estop and auto-switch
   e = new Estop(&nh, ESTOP_PIN, 1);
@@ -106,10 +130,12 @@ void setup() { // ----------S----------S----------S----------S----------S
   // TODO Operator verify that actuators are in default positions
 
   // Set actuators to default positions
-  rc.SpeedAccelDeccelPositionM1(address, 0, 300, 0, velMsg, 0);
+  rc1.SpeedAccelDeccelPositionM1(address, 0, 300, 0, velMsg, 0);
   prevVelMsg = velMsg;
-  rc.SpeedAccelDeccelPositionM2(address, 0, 500, 0, steerMsg, 0);
+  rc1.SpeedAccelDeccelPositionM2(address, 0, 500, 0, steerMsg, 0);
   prevSteerMsg = steerMsg;
+  rc2.SpeedAccelDeccelPositionM2(address, 0, 300, 0, heightMsg, 0);
+  prevHeightMsg = heightMsg;
 
 } //setup()
 
@@ -127,7 +153,7 @@ void loop() { // ----------L----------L----------L----------L----------L
   
   // Sends commands to RoboClaw every ROBOCLAW_UPDATE_RATE milliseconds
   if (millis() - prevMillis > ROBOCLAW_UPDATE_RATE && !isEStopped) {
-    updateRoboClaw(velMsg, steerMsg);
+    updateRoboClaw(velMsg, steerMsg, heightMsg);
 
   }
     
@@ -163,7 +189,7 @@ void loop() { // ----------L----------L----------L----------L----------L
  * ARGS: integer velocity, integer steering angle
  * RTNS: none
 */
-void updateRoboClaw(int velMsg, int steerMsg) {
+void updateRoboClaw(int velMsg, int steerMsg, int heightMsg) {
 
   //Calculate step sizes based on fidelity
   int steerStep = (STEER_HIGH - STEER_LOW) / STEER_FIDELITY;
@@ -176,13 +202,14 @@ void updateRoboClaw(int velMsg, int steerMsg) {
   // Update prev msgs
   prevVelMsg = velMsg;
   prevSteerMsg = steerMsg;
+  prevHeightMsg = heightMsg;
   
   // Write velocity to RoboClaw
-  rc.SpeedAccelDeccelPositionM1(address, 100000, 1000, 0, velMsg, 0);
+  rc1.SpeedAccelDeccelPositionM1(address, 100000, 1000, 0, velMsg, 0);
 
   // Write steering to RoboClaw if tractor is moving, else returns debug msg
   if (velMsg < VEL_HIGH) {
-    rc.SpeedAccelDeccelPositionM2(address, 0, 1000, 0, steerMsg, 0);
+    rc1.SpeedAccelDeccelPositionM2(address, 0, 1000, 0, steerMsg, 0);
   }
   else {
     #ifdef DEBUG
@@ -192,12 +219,15 @@ void updateRoboClaw(int velMsg, int steerMsg) {
     #endif //DEBUG
   }
 
+  // Write hitch height to RoboClaw
+  rc2.SpeedAccelDeccelPositionM2(address, 100000, 1000, 0, heightMsg, 0);
+
   prevMillis = millis();  // Reset timer
 
   // roslog msgs if debugging
   #ifdef DEBUG
     char j[36];
-    snprintf(j, sizeof(j), "DBG: steerMsg = %d, velMsg = %d", steerMsg, velMsg);
+    snprintf(j, sizeof(j), "DBG: steerMsg = %d, velMsg = %d, heightMsg = %d", steerMsg, velMsg, heightMsg);
     nh.loginfo(j);
   #endif //DEBUG
 
@@ -248,6 +278,23 @@ int velConvert(float ack_vel){
 
   return ack_vel;
 } //velConvert()
+
+
+
+// TODO: MAKE THIS USE ENCODER DATA
+/*
+ * FUNCTION: heightConvert()
+ * DESC: CURRENTLY CONVERTS -1 to 1 POSITION TO POSITION FOR ROBOCLAW
+ * ARGS: float position
+ * RTRNS: converted position
+ */
+int heightConvert(float hitch_pos){
+  
+  hitch_pos = HEIGHT_MAX - hitch_pos * ((HEIGHT_MAX - HEIGHT_MIN) / HEIGHT_CONTROL_RANGE);
+
+  return hitch_pos;
+  }
+
 
 
 /*
