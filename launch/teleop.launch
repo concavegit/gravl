@@ -1,5 +1,8 @@
 <launch>
   <!-- This brings up teleop -->
-  <node pkg="joy" type="joy_node" name="joystick"/>
-  <node pkg="tractor" type="Teleop" name="joystick_teleop"/>
+  <arg name="joy_dev" default="/dev/input/js2" />
+  <node pkg="joy" type="joy_node" name="joystick">
+    <param name="dev" value="$(arg joy_dev)" />
+  </node>
+  <node pkg="gravl" type="Teleop" name="joystick_teleop"/>
 </launch>
