@@ -5,7 +5,7 @@
  * @email carl.moser@students.olin.edu
  * @version     1.0
  *
- * This takes in messages from teledrive and autodrive and publishes them to 
+ * This takes in messages from teledrive and autodrive and publishes them to
  * drive based on the value published to auto (default-false)
  * auto = true:  autodrive -> drive
  * auto = false: teledrive -> drive
@@ -20,8 +20,10 @@
  */
 DriveState::DriveState(){
   state =  n.subscribe("auto", 10, &DriveState::stateCB, this);
-  telesub = n.subscribe("teledrive", 10, &DriveState::teleCB, this);
+  teledrivesub = n.subscribe("teledrive", 10, &DriveState::teledriveCB, this);
+  telehitchsub = n.subscribe("telehitch", 10, &DriveState::telehitchCB, this);
   drivepub = n.advertise<ackermann_msgs::AckermannDrive>("drive", 1000);
+  hitchpub = n.advertise<geometry_msgs::Point>("hitch", 1000);
 }
 
 /*
@@ -29,27 +31,37 @@ DriveState::DriveState(){
  */
 void DriveState::stateCB(const std_msgs::Bool &msg){
   if(msg.data){
-    telesub.shutdown();
-    autosub = n.subscribe("autodrive", 10, &DriveState::autoCB, this);
+    teledrivesub.shutdown();
+    telehitchsub.shutdown();
+    autodrivesub = n.subscribe("autodrive", 10, &DriveState::autodriveCB, this);
+    autohitchsub = n.subscribe("autohitch", 10, &DriveState::autohitchCB, this);
   }
   else{
-    autosub.shutdown();
-    telesub = n.subscribe("teledrive", 10, &DriveState::teleCB, this);
+    autodrivesub.shutdown();
+    autohitchsub.shutdown();
+    teledrivesub = n.subscribe("teledrive", 10, &DriveState::teledriveCB, this);
+    telehitchsub = n.subscribe("telehitch", 10, &DriveState::telehitchCB, this);
   }
 }
 
-/* 
+/*
  * Callback function for teledrive subscriber - publishes to drivepub
  */
-void DriveState::teleCB(const ackermann_msgs::AckermannDrive &msg){
+void DriveState::teledriveCB(const ackermann_msgs::AckermannDrive &msg){
   drivepub.publish(msg);
 }
+void DriveState::telehitchCB(const geometry_msgs::Point &msg){
+  hitchpub.publish(msg);
+}
 
-/* 
+/*
  * Callback function for autodrive subscriber - publishes to drivepub
  */
-void DriveState::autoCB(const ackermann_msgs::AckermannDrive &msg){
+void DriveState::autodriveCB(const ackermann_msgs::AckermannDrive &msg){
   drivepub.publish(msg);
+}
+void DriveState::autohitchCB(const geometry_msgs::Point &msg){
+  hitchpub.publish(msg);
 }
 
 // main function

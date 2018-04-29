@@ -91,7 +91,6 @@ void ackermannCB(const ackermann_msgs::AckermannDrive &drive){
  */
 void hitchCB(const geometry_msgs::Point &hitch){
   heightMsg = heightConvert(hitch.z);
-  
 } //hitchCB()
 
 // Declare ROS node & subscriber

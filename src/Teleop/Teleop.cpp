@@ -18,6 +18,7 @@
 Teleop::Teleop(){
   joystick = n.subscribe("/joy", 10, &Teleop::joyCB, this);
   teledrive = n.advertise<ackermann_msgs::AckermannDrive>("teledrive", 1000);
+  telehitch = n.advertise<geometry_msgs::Point>("telehitch",1000)
   softestop = n.advertise<std_msgs::Bool>("softestop", 1000);
   autonomous = n.advertise<std_msgs::Bool>("auto", 1000);
 }
@@ -48,7 +49,20 @@ void Teleop::joyCB(const sensor_msgs::Joy::ConstPtr &joy){
     else{
       drive_msg.steering_angle = 45*joy->axes[3];
       drive_msg.speed = 2*joy->axes[1];
+
+      if( (joy->axes[2] != 0) && (joy->axes[5] != 0) ){
+        //TEMPORARY, WILL LATER ACCOUNT FOR POSITION
+        hitch_msg.x = 0
+      } else if(joy->axes[2] != 0){
+        //TEMPORARY, WILL LATER ACCOUNT FOR POSITION
+        hitch_msg.x = -1
+      } else if(joy->axes[5] != 0){
+        //TEMPORARY, WILL LATER ACCOUNT FOR POSITION
+        hitch_msg.x = 1
+      }
+
       teledrive.publish(drive_msg);
+      telehitch.publish(hitch_msg);
     }
   }
 }
