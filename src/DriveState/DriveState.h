@@ -20,7 +20,7 @@ private:
   ros::Publisher drivepub;
   ros::Publisher hitchpub;
   ackermann_msgs::AckermannDrive drive_msg;
-  geometry_msgs::Point hitch_msg
+  geometry_msgs::Point hitch_msg;
   void stateCB(const std_msgs::Bool &msg);
   void teledriveCB(const ackermann_msgs::AckermannDrive &msg);
   void autodriveCB(const ackermann_msgs::AckermannDrive &msg);
