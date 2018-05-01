@@ -1,4 +1,4 @@
-/**********************************************************************
+  /**********************************************************************
  * KUBO Hindbrain Code (Teensy 3.5)
  * @file hind_brain.ino
  * @author: Connor Novak
@@ -49,8 +49,8 @@ const int STEER_CONTROL_RANGE = 90;
 const byte VEL_FIDELITY = 10;       // Stepping sub-division of actuator
 const byte STEER_FIDELITY = 1;
 // RoboClaw 2
-const int HEIGHT_MAX = 2048; // Retracted Actuator
-const int HEIGHT_MIN = 190;  // Extended Actuator
+const int HEIGHT_MAX = 1300; // Retracted Actuator
+const int HEIGHT_MIN = 540;  // Extended Actuator
 const int HEIGHT_CONTROL_RANGE = 2;    // Range of incoming signals
 
 // Def/Init Global Variables ----------V----------V----------V
