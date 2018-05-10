@@ -16,9 +16,10 @@
 #include <Arduino.h>                        // Used for Arduino functions
 #include "ros.h"                            // Used for rosserial communication
 #include "ackermann_msgs/AckermannDrive.h"  // Used for rosserial steering message
-#include "geometry_msgs/Point.h"
+#include "geometry_msgs/Point.h"            // Used for hitch height message
 #include "estop.h"                          // Used to implement estop class
 #include "soft_switch.h"                    // Used to implement auto switch
+#include <Encoder.h>                        // Used for encoder readings
 
 // Declare switch & estop
 Estop *e;
@@ -37,6 +38,9 @@ const byte ESTOP_PIN = 2;
 RoboClaw rc1(&Serial1, 10000); // In front box, for steering and driving
 RoboClaw rc2(&Serial2, 10000); // In back of tractor, for hitch
 
+// Encoder
+Encoder hitch_encoder(18, 19); // Plugged into teensy pins 18 and 19
+
 // General Constants
 // RoboClaw 1
 #define DEBUG TRUE
@@ -52,6 +56,7 @@ const byte STEER_FIDELITY = 1;
 const int HEIGHT_MAX = 1300; // Retracted Actuator
 const int HEIGHT_MIN = 540;  // Extended Actuator
 const int HEIGHT_CONTROL_RANGE = 2;    // Range of incoming signals
+// Encoder
 
 // Def/Init Global Variables ----------V----------V----------V
 
@@ -68,7 +73,8 @@ unsigned long prevMillis = millis();
 // RoboClaw 2
 int prevHeightMsg;
 unsigned int heightMsg = (HEIGHT_MAX + HEIGHT_MIN) / 2; // High height_max = retracted actuator = raise hitch
-
+// Encoder
+long hitch_encoder_msg;
 
 
 /*
@@ -93,15 +99,18 @@ void hitchCB(const geometry_msgs::Point &hitch){
   heightMsg = heightConvert(hitch.z);
 } //hitchCB()
 
+
 // Declare ROS node & subscriber
 ros::NodeHandle nh;
 ros::Subscriber<ackermann_msgs::AckermannDrive> sub_drive("drive", &ackermannCB);
-ros::Subscriber<geometry_msgs::Point> sub_hitch("hitch", &hitchCB);
+ros::Subscriber<geometry_msgs::Point> sub_hitch("hitch", &hitchCB); // For controlling hitch
+geometry_msgs::Point hitch_current_height;
+ros::Publisher hitch_pose("hitch_pose",&hitch_current_height); // For reading current height values
 
 
 /*
  * FUNCTION: setup()
- * DESC: runs once on startup
+ * DESC: runs once on startup 
  * ARGS: none
  * RTNS: none
  */
@@ -116,6 +125,7 @@ void setup() { // ----------S----------S----------S----------S----------S
   nh.initNode(); // Initialize ROS nodehandle
   nh.subscribe(sub_drive);
   nh.subscribe(sub_hitch);
+  nh.advertise(hitch_pose);
 
   // Initialize estop and auto-switch
   e = new Estop(&nh, ESTOP_PIN, 1);
@@ -149,11 +159,20 @@ void loop() { // ----------L----------L----------L----------L----------L
 
   // Checks for connectivity with mid-brain and updates estopped state
   checkSerial(&nh);
+
+  // Updates encoder readings
+  hitch_encoder_msg = hitch_encoder.read();
+  // Converts encoder reading to inches away from back plate 
+  // 1000 converts from encoder reading to inches
+  // Other constants form a best fit line from encoder readings to inches away from back ledge
+  hitch_current_height.z = (hitch_encoder_msg/1000.0)* 1.1429 + 1.7474;  
+
+  // Publish current hitch pose
+  hitch_pose.publish(&hitch_current_height);
   
   // Sends commands to RoboClaw every ROBOCLAW_UPDATE_RATE milliseconds
   if (millis() - prevMillis > ROBOCLAW_UPDATE_RATE && !isEStopped) {
     updateRoboClaw(velMsg, steerMsg, heightMsg);
-
   }
     
   // Updates node
@@ -288,8 +307,13 @@ int velConvert(float ack_vel){
  * RTRNS: converted position
  */
 int heightConvert(float hitch_pos){
+  //given desired hitch.z, convert to numerical position value for actuator
   
-  hitch_pos = HEIGHT_MAX - hitch_pos * ((HEIGHT_MAX - HEIGHT_MIN) / HEIGHT_CONTROL_RANGE);
+  // Convert from inches to 
+  //hitch_pos = HEIGHT_MAX - hitch_pos * ((HEIGHT_MAX - HEIGHT_MIN) / HEIGHT_CONTROL_RANGE);
+  //+ hitch_current_height.z;
+
+  if abs(error) < THRESHOLD
 
   return hitch_pos;
   }
