@@ -78,10 +78,10 @@ signed int steerMsg = (STEER_HIGH + STEER_LOW) / 2; // Straight steer in middle
 unsigned long prevMillis = millis();
 // RoboClaw 2
 int prevHeightMsg;
-unsigned int heightMsg = (HEIGHT_MAX + HEIGHT_MIN) / 2; // High height_max = retracted actuator = raise hitch
+double heightMsg = (HEIGHT_MAX + HEIGHT_MIN) / 2; // High height_max = retracted actuator = raise hitch
 // Encoder
-long hitch_encoder_msg;
-long hitch_desired_height = 2; // Start the hitch at the max height
+double hitch_encoder_msg;
+double hitch_desired_height = 2; // Start the hitch at the max height
 
 
 /*
@@ -122,7 +122,7 @@ ros::Publisher hitch_pose("hitch_pose",&hitch_current_height); // For reading cu
  * RTNS: none
  */
 void setup() { // ----------S----------S----------S----------S----------S
-
+  Serial.begin(9600);
   //Open serial communication with roboclaw
   rc1.begin(38400);
   rc2.begin(38400);
