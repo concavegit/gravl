@@ -1,3 +1,4 @@
+
  // TODO: Add subscriber to tractor_on or something like that for moving hitch to default position, allow user to "set" blade height by resetting tractor
   
   
@@ -166,7 +167,7 @@ void loop() { // ----------L----------L----------L----------L----------L
   
 
   // Checks for connectivity with mid-brain and updates estopped state
-  checkSerial(&nh);
+  //checkSerial(&nh);
 
   // Updates encoder readings
   hitch_encoder_msg = hitch_encoder.read();
