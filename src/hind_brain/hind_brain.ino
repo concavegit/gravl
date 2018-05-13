@@ -62,8 +62,7 @@ const int HEIGHT_MAX = 1300; // Retracted Actuator
 const int HEIGHT_MIN = 540;  // Extended Actuator
 const int HEIGHT_CONTROL_RANGE = HEIGHT_MAX-HEIGHT_MIN;
 // Encoder
-const long ENC_STOP_THRESHOLD = 2; // Threshold of blade accuracy to stop in inches
-const long ENC_k = 130;
+const long ENC_STOP_THRESHOLD = 1.5; // Threshold of blade accuracy to stop in inches
 
 // Def/Init Global Variables ----------V----------V----------V
 
@@ -82,7 +81,7 @@ int prevHeightMsg;
 double heightMsg = (HEIGHT_MAX + HEIGHT_MIN) / 2; // High height_max = retracted actuator = raise hitch
 // Encoder
 double hitch_encoder_msg;
-double hitch_desired_height = 2; // Start the hitch at the max height, inches away from ledge
+double hitch_desired_height = 3; // Start the hitch at the max height, inches away from ledge
 
 
 /*
@@ -312,8 +311,13 @@ double heightConvert(float hitch_encoder_msg){
   // 11500 offsets encoder reading so that at 0 is encoder is fully retracted, and sets "0" at max hitch height
   // 1000 converts from encoder reading to inches
   // Other constants form a best fit line from encoder readings to inches away from back ledge
-  hitch_current_height.z = ((hitch_encoder_msg-11500)/1000.0)* 1.1429 + 1.7474;  //NEED CALIBRATION
+
+  if (millis() - prevMillis > ROBOCLAW_UPDATE_RATE) {
+    Serial.println(hitch_encoder_msg);
+  }
   
+  hitch_current_height.z = (hitch_encoder_msg/10000)*9.1625-8.0996;  
+    
   // Publish current hitch pose
   hitch_pose.publish(&hitch_current_height);
   
@@ -326,13 +330,21 @@ double heightConvert(float hitch_encoder_msg){
     hitch_pos_cmd = HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
   }
   else{
-    hitch_pos_cmd = ENC_k*error + HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
+    if (error < 0){ // Hitch is too high
+      hitch_pos_cmd = 47.5*error + 635;
+    }
+    else { // Hitch is too low
+      hitch_pos_cmd = 66.5*error + 1167;
+    }
+    
     if (hitch_pos_cmd < 540){
       hitch_pos_cmd = 540;
     }
     else if (hitch_pos_cmd > 1300){
       hitch_pos_cmd = 1300;
     }
+
+    
   }
   return hitch_pos_cmd;
 } //heightConvert()
