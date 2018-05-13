@@ -104,7 +104,7 @@ void ackermannCB(const ackermann_msgs::AckermannDrive &drive){
  * RTNS: none
  */
 void hitchCB(const geometry_msgs::Point &hitch){
-  heightConvert(hitch.z);
+  hitch_desired_height = hitch.z;
 } //hitchCB()
 
 
@@ -164,49 +164,10 @@ void setup() { // ----------S----------S----------S----------S----------S
  * RTNS: none
 */
 void loop() { // ----------L----------L----------L----------L----------L
-  
-
   // Checks for connectivity with mid-brain and updates estopped state
   checkSerial(&nh);
 
-  // Updates encoder readings
-  hitch_encoder_msg = hitch_encoder.read()-11500; // Encoder value is  if hitch is fully raised NEED CALIBRATION
-  hitch_current_height.z = ((hitch_encoder_msg)/1000.0)* 1.1429 + 1.7474;  //NEED CALIBRATION
-  
-
-  // Converts encoder reading to inches away from back plate 
-  // 1000 converts from encoder reading to inches
-  // Other constants form a best fit line from encoder readings to inches away from back ledge
-
-  // Publish current hitch pose
-  hitch_pose.publish(&hitch_current_height);
-  
-  double error = hitch_current_height.z - hitch_desired_height;
-  
-
-  //TEMPORARY:
-  double hitch_pos;
-  
-  // If hitch height is "good enough," then move actuator to neutral position
-  if (abs(error) < ENC_STOP_THRESHOLD){
-    hitch_pos = HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
-  }
-  else{
-    hitch_pos = ENC_k*error + HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
-    if (hitch_pos < 540){
-      hitch_pos = 540;
-    }
-    else if (hitch_pos > 1300){
-      hitch_pos = 1300;
-    }
-  }
-  heightMsg = hitch_pos;
-  Serial.println(heightMsg);
-  
-
-
-
-  
+  heightMsg = heightConvert(hitch_encoder.read());  
   
   // Sends commands to RoboClaw every ROBOCLAW_UPDATE_RATE milliseconds
   //if (millis() - prevMillis > ROBOCLAW_UPDATE_RATE && !isEStopped) {
@@ -218,48 +179,7 @@ void loop() { // ----------L----------L----------L----------L----------L
   nh.spinOnce();
   delay(1);
 
-
 } //loop()
-
-
-
-
-
-/*
- *   // Converts encoder reading to inches away from back plate 
-  // 1000 converts from encoder reading to inches
-  // Other constants form a best fit line from encoder readings to inches away from back ledge
-  hitch_current_height.z = (hitch_encoder_msg/1000.0)* 1.1429 + 1.7474;  
-
-  // Publish current hitch pose
-  hitch_pose.publish(&hitch_current_height);
-
-  
-  float error = hitch_current_height.z - hitch_desired_height;
-
-  //TEMPORARY:
-  long hitch_pos;
-  
-  // If hitch height is "good enough," then move actuator to neutral position
-  if (abs(error) < ENC_STOP_THRESHOLD){
-    hitch_pos = HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
-  }
-  else{
-    hitch_pos = ENC_k*error + HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
-    if (hitch_pos < 540){
-      hitch_pos = 540;
-    }
-    else if (hitch_pos > 1300){
-      hitch_pos = 1300;
-    }
-  }
-  heightMsg = hitch_pos;
-
-
- */
-
-
-
 
 
 
@@ -380,24 +300,43 @@ int velConvert(float ack_vel){
 
 
 
-// TODO: MAKE THIS USE ENCODER DATA
 /*
  * FUNCTION: heightConvert()
- * DESC: CURRENTLY CONVERTS -1 to 1 POSITION TO POSITION FOR ROBOCLAW
- * ARGS: float position
+ * DESC: Converts encoder message to position command for RoboClaw
+ * ARGS: float hitch encoder message
  * RTRNS: converted position
  */
-void heightConvert(float hitch_pos){
-  //given desired hitch.z, convert to numerical position value for actuator
+double heightConvert(float hitch_encoder_msg){
+
+  // Converts encoder readings to distance from ledge in inches
+  // 11500 offsets encoder reading so that at 0 is encoder is fully retracted, and sets "0" at max hitch height
+  // 1000 converts from encoder reading to inches
+  // Other constants form a best fit line from encoder readings to inches away from back ledge
+  hitch_current_height.z = ((hitch_encoder_msg-11500)/1000.0)* 1.1429 + 1.7474;  //NEED CALIBRATION
   
-  // Convert from inches to 
-  //hitch_pos = HEIGHT_MAX - hitch_pos * ((HEIGHT_MAX - HEIGHT_MIN) / HEIGHT_CONTROL_RANGE);
-  //+ hitch_current_height.z;
-  hitch_desired_height = hitch_pos;
-  //return hitch_pos;
+  // Publish current hitch pose
+  hitch_pose.publish(&hitch_current_height);
+  
+  double error = hitch_current_height.z - hitch_desired_height;
+  
+  double hitch_pos_cmd;
+  
+  // If hitch height is "good enough," then move actuator to neutral position
+  if (abs(error) < ENC_STOP_THRESHOLD){
+    hitch_pos_cmd = HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
   }
-
-
+  else{
+    hitch_pos_cmd = ENC_k*error + HEIGHT_CONTROL_RANGE/2 + HEIGHT_MIN;
+    if (hitch_pos_cmd < 540){
+      hitch_pos_cmd = 540;
+    }
+    else if (hitch_pos_cmd > 1300){
+      hitch_pos_cmd = 1300;
+    }
+  }
+  return hitch_pos_cmd;
+} //heightConvert()
+ 
 
 /*
  * FUNCTION: stepActuator()
