@@ -81,7 +81,7 @@
     </collision>
   </link>
   <joint
-    name="axle_rear"
+    name="axle_rear_right"
     type="continuous">
     <origin
       xyz="-0.448309999999995 -0.743606368790554 -0.86868"
@@ -134,7 +134,7 @@
     </collision>
   </link>
   <joint
-    name="axle_rear"
+    name="axle_rear_left"
     type="continuous">
     <origin
       xyz="0.44831 -0.743606368790555 -0.868680000000001"
@@ -187,7 +187,7 @@
     </collision>
   </link>
   <joint
-    name="steering"
+    name="steering_left"
     type="revolute">
     <origin
       xyz="-0.448310000000012 1.09891073605216 -1.02108"
@@ -240,7 +240,7 @@
     </collision>
   </link>
   <joint
-    name="axis_left"
+    name="axle_front_left"
     type="continuous">
     <origin
       xyz="0 0.01 0"
@@ -293,7 +293,7 @@
     </collision>
   </link>
   <joint
-    name="steering"
+    name="steering_right"
     type="revolute">
     <origin
       xyz="0.448309999999996 1.09891073605216 -1.02108"
@@ -346,7 +346,7 @@
     </collision>
   </link>
   <joint
-    name="axle_front"
+    name="axle_front_right"
     type="continuous">
     <origin
       xyz="0 0 0"
