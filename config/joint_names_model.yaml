@@ -1,1 +1,1 @@
-controller_joint_names: ['axle_rear', 'axle_rear', 'steering', 'axis_left', 'steering', 'axle_front', ]
+controller_joint_names: ['axle_rear_left', 'axle_rear_right', 'steering_left', 'axle_front_left', 'steering_right', 'axle_front_right', ]
